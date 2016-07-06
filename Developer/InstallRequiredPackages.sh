@@ -10,10 +10,15 @@ _sname=`readlink -f "$0"`
 __sdir=`dirname "${_sname}"`
 __list=`cat "${__sdir}/install_list.txt"`
 
-__texe=`mktemp`
-/usr/bin/cc "${__sdir}/wordsizetest.c" -o "${__texe}"
-__wordsize=`"${__texe}"`
-rm "${__texe}"
+if [ "$1" = "4" -o "$1" = "8" ]; then
+	__wordsize="$1"
+	shift
+else
+	__texe=`mktemp`
+	/usr/bin/cc "${__sdir}/wordsizetest.c" -o "${__texe}"
+	__wordsize=`"${__texe}"`
+	rm "${__texe}"
+fi
 
 __bitcount=$((${__wordsize} * 8))
 whiptail --title "CPU Word Size" --msgbox "It appears you are running a ${__bitcount}-bit CPU." 0 40

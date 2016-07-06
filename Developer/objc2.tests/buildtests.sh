@@ -19,9 +19,9 @@ _cflags="`gnustep-config --objc-flags` `gnustep-config --objc-libs` ${CFLAGS} -f
 _bflags="-ldispatch -lgnustep-base"
 _usearc="-fobjc-arc"
 
-clang ${_cflags} ${_usearc} -o blocktest blocktest.m
-clang ${_cflags} ${_bflags} -o helloGCD Fraction.m helloGCD_objc.m
-clang ${_cflags} ${_usearc} ${_bflags} -lgnustep-gui -o guitest guitest.m
+clang ${_cflags} ${_usearc} -o blocktest blocktest.m || exit "$?"
+clang ${_cflags} ${_bflags} -o helloGCD Fraction.m helloGCD_objc.m || exit "$?"
+clang ${_cflags} ${_usearc} ${_bflags} -lgnustep-gui -o guitest guitest.m || exit "$?"
 
 # Using MAKEFILE
 
