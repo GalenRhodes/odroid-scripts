@@ -1,0 +1,94 @@
+#!/bin/bash
+
+_U=`whoami`
+if [ "${_U}" != "root" ]; then
+	sudo -E "$0" "$@" ; exit "$?"
+fi
+unset _U
+
+source "`dirname "$0"`/LoadBashScripts.sh"
+
+REBOOT_TRIGGER="/var/run/reboot-required"
+
+function UpdateOdroidUtils() {
+	local _PTH="$1"
+	local _URL="$2"
+	local _FLS=`curl -s "${_URL}/files.txt"`
+
+	for _X in ${_FLS}; do
+		zecho "Updating" "${_X}"
+		rm -fr "${_PTH}/${_X}"
+		curl -s "${_URL}/${_X}" > "${_PTH}/${_X}"
+	done
+
+	chmod a+x "${_PTH}/odroid-utility.sh"
+	return "$?"
+}
+
+function RunAptGet() {
+	apt-get -y "$@" || exit "$?"
+	return 0
+}
+
+function UpdateKernel() {
+	local f=`RunAptGet install "$1" | grep -E "$1 is already the newest version"`
+
+    if [ -n "${f}" ]; then
+        zecho "KERNEL" "$1 is already up-to-date and was not updated."
+    else
+        zecho "KERNEL" "$1 was successfully updated."
+
+		if [ ! -f "${REBOOT_TRIGGER}" ]; then
+			echo "*** System restart required ***" > "${REBOOT_TRIGGER}"
+			echo "$1" >> "${REBOOT_TRIGGER}.pkgs"
+		fi
+    fi
+
+	return 0
+}
+
+function UpdatePlatforms() {
+	if TestOdroidXU4; then
+
+		UpdateKernel "linux-image-xu3" && UpdateOdroidUtils "/usr/local/bin" "https://raw.githubusercontent.com/mdrjr/odroid-utility/master"
+
+	elif TestOdroidC2; then
+
+		UpdateKernel "linux-image-c2"
+
+	fi
+
+	return "$?"
+}
+
+function RebootOnTrigger() {
+	##############################################################################################################################
+	# Debian and Ubuntu packages can trigger the creation of '/var/run/reboot-required*' in their postinst file by executing the
+	# helper script '/usr/share/update-notifier/notify-reboot-required'.  Thus the "official" way to process reboots is handled
+	# by the package maintainer. I have been doing it previously in a script by comparing time booted against mtimes in '/boot'.
+	#
+	r="$?"
+
+	if [ -f "${REBOOT_TRIGGER}" ]; then
+		for f in $@; do
+			case "${f}" in
+				"--skipreboot") return "${r}";;
+			esac
+		done
+
+		reboot
+	fi
+
+	return "${r}"
+}
+
+apt-get check && \
+	apt-get -y update && \
+	apt-get -y upgrade && \
+	apt-get -y dist-upgrade && \
+	apt-get -y autoremove && \
+	UpdatePlatforms && \
+	apt-get -y autoremove && \
+	RebootOnTrigger
+
+exit "$?"

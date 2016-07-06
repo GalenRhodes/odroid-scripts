@@ -1,0 +1,4 @@
+#!/bin/bash
+
+sudo find "${HOME}" -name "*~" -delete && sudo find "${HOME}" -name "._*" -delete
+exit "$?"

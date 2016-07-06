@@ -1,0 +1,9 @@
+#!/bin/bash
+
+TIMESTAMP=`date +%Y%m%d%H%M%S`
+ARCHIVENAME=`basename "$1"`
+ARCHIVEPATH=`dirname "$1"`
+TARNAME="${ARCHIVENAME}.${TIMESTAMP}.tar"
+shift
+
+exec tar cf - "$@" | bcnt -c5 | 7za a -an -txz -si -so 2>/dev/null | bcnt -c7 > "${ARCHIVEPATH}/${TARNAME}.xz"

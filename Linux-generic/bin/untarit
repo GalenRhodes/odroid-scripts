@@ -1,0 +1,34 @@
+#!/bin/bash
+
+__scpt="$0"
+__sdir=`dirname "${__scpt}"`
+__wdir="${PWD}"
+__cdir="${__wdir}"
+
+source "${__sdir}/LoadBashScripts.sh"
+
+if [ "$#" -lt 1 ]; then
+	zfail "1" "No archive was specified. Nothing to do!"
+fi
+
+while [ "$#" -gt 0 ]; do
+	__archive="$1"
+	shift
+	
+	if [ "$#" -ge 2 -a "$1" = "-C" ]; then
+		__cdir="$2"
+		shift 2
+	fi
+	
+	mkdir -p "${__cdir}" || zfail "$?" "Unable to create target directory \"${__cdir}\"!"
+	zecho "Extracting" "Archive \"${__archive}\" to directory \"${__cdir}\"..."
+	
+	cat "${__archive}" | bcnt -c5 | 7za e -an -txz -si -so 2>/dev/null | bcnt -c7 | tar -xf - -C "${__cdir}"
+	r=$?
+	
+	if [ $r -ne 0 ]; then
+		zfail "$r" "Failed to extract contents of archive \"${__archive}\"."
+	fi
+done
+
+exit 0

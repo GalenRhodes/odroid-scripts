@@ -1,0 +1,23 @@
+#!/bin/bash
+
+for __f in $@; do
+    cat >"${__f}" <<-"EOF"
+		#!/bin/bash
+		__sdir=$(dirname $(readlink -f "$0"))
+		
+		
+		exit "$?"
+	EOF
+    chmod a+x "${__f}" 2>/dev/null
+done
+
+__editor=`which gedit`
+if [ -z "${__editor}" ]; then __editor=`which pluma`; fi
+if [ -z "${__editor}" ]; then __editor=`which jedit`; fi
+if [ -n "${__editor}" ]; then
+	nohup "${__editor}" "$@" >/dev/null 2>&1 &
+else
+	editor "$@"
+fi
+exit 0
+

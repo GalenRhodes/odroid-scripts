@@ -1,0 +1,43 @@
+#!/bin/bash
+
+OHOME="/usr/local/objc2.0"
+OLIB="${OHOME}/lib"
+rm *.o *.d 2>/dev/null
+
+for sf in *.m; do
+	echo "Compiling \"${sf}\"..."
+
+	"${CC}" -DGNUSTEP -DGNUSTEP_BASE_LIBRARY=1 -DGNU_GUI_LIBRARY=1 \
+		-DGNU_RUNTIME=1 -DGNUSTEP_BASE_LIBRARY=1 -fno-strict-aliasing \
+		-fexceptions -fobjc-exceptions -D_NATIVE_OBJC_EXCEPTIONS \
+		-fobjc-nonfragile-abi -D_NONFRAGILE_ABI -pthread -fPIC -Wall -DGSWARN \
+		-DGSDIAGNOSE -Wno-import -fgnu-runtime -fobjc-arc -fblocks \
+		-fobjc-runtime=gnustep -fconstant-string-class=NSConstantString -I. \
+		"-I${HOME}/GNUstep/Library/Headers" "-I${OHOME}/include" \
+		${CFLAGS} -o "${sf}.S" -S "${sf}" || exit "$?"
+done
+
+for sf in *.S; do
+	echo "Assembling \"${sf}\"..."
+	"${CC}" -DGNUSTEP -DGNUSTEP_BASE_LIBRARY=1 -DGNU_GUI_LIBRARY=1 \
+        -DGNU_RUNTIME=1 -DGNUSTEP_BASE_LIBRARY=1 -fno-strict-aliasing \
+        -D_NATIVE_OBJC_EXCEPTIONS -D_NONFRAGILE_ABI -pthread -fPIC -Wall -DGSWARN \
+        -DGSDIAGNOSE -Wno-import -fgnu-runtime -fobjc-arc -fblocks \
+        -fobjc-runtime=gnustep -fconstant-string-class=NSConstantString \
+		-Ofast -g0 -o "${sf}.o" -c "${sf}" || exit "$?"
+done
+
+echo "Linking with static Objective-C runtime..."
+"${CC}" -rdynamic ${LDFLAGS} -pthread -fexceptions -fobjc-nonfragile-abi \
+	-fgnu-runtime -fobjc-arc -fblocks -fobjc-runtime=gnustep -lgnustep-base \
+	"-L${HOME}/GNUstep/Library/Libraries" "-L${OLIB}" -lm \
+	"${OLIB}/libobjc.a" -o Test-a *.o || exit "$?"
+
+echo "Linking with dynamic Objective-C runtime..."
+"${CC}" -rdynamic ${LDFLAGS} -pthread -fexceptions -fobjc-nonfragile-abi \
+    -fgnu-runtime -fobjc-arc -fblocks -fobjc-runtime=gnustep -lgnustep-base \
+    "-L${HOME}/GNUstep/Library/Libraries" "-L${OLIB}" -lm \
+    -lobjc -o Test-b *.o || exit "$?"
+
+echo "Done."
+exit "$?"
