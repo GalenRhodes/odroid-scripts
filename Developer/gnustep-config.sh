@@ -16,6 +16,10 @@ while [ -z "${__prefix}" ]; do
 	fi
 done
 
+# --enable-objc-nonfragile-abi --enable-native-objc-exceptions --disable-debug-by-default --with-layout=fhs --enable-objc-arc --disable-backend-bundle
+
+# --disable-mixedabi
+
 "${__pwd}/configure"												\
 	--prefix="${__prefix}"											\
 	--build="${__build}" --host="${__build}" --target="${__build}"	\
