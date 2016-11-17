@@ -3,6 +3,8 @@
 if [ "$1" = "-f" ]; then
 	rsync -avz "grhodes@homer:Projects/odroid-scripts/Developer/removegnustep.sh" "${HOME}/Projects/"
 	exit "$?"
+elif [ "$1" = "-s" ]; then
+	rsync -avz "${HOME}/Projects/removegnustep.sh" "grhodes@homer:Projects/odroid-scripts/Developer/"
 fi
 
 rm -f "${HOME}/.bash.d/"bash*gnustep.sh

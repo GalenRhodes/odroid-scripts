@@ -1,5 +1,6 @@
 #!/bin/bash
 
+DOKQUEUE="N"
 PRJDIR="${HOME}/Projects"
 
 if [ "$1" = "-f" ]; then rsync -avz "grhodes@homer:Projects/odroid-scripts/Developer/clone.sh" "${PRJDIR}/"; exit "$?"; fi
@@ -9,6 +10,9 @@ CFLAGS_INTEL_X32=""
 CFLAGS_ARMV8_C2="-march=armv8-a -mtune=cortex-a53 -mcpu=cortex-a53"
 CFLAGS_ARMV7_XU4="-march=armv7-a -mtune=cortex-a15 -mcpu=cortex-a15 -mfpu=vfpv4 -mfloat-abi=hard"
 CFLAGS_ARMV7_RPI2="-march=armv7-a -mtune=cortex-a7 -mcpu=cortex-a7 -mfpu=vfpv4 -mfloat-abi=hard"
+
+_target=$(clang -v 2>&1 | grep -E '^Target' | awk '{print $2}')
+echo "TARGET: ${_target}"
 
 _cbase="-integrated-as -Qunused-arguments ${CFLAGS_ARMV7_RPI2} -w"
 export CFLAGS="${_cbase}"
@@ -23,15 +27,17 @@ gnustephome="core"
 gnustepsrc="GNUstep-source.tar.xz"
 
 cd "${PRJDIR}" || exit "$?"
-sudo rm -fr "${gnustephome}" "${gnustepsrc}" libdispatch* libobjc2* /usr/local/include/NiagraFalls/ /usr/local/lib/libNiagra*
-#( git clone git://github.com/nickhutchinson/libdispatch.git && git clone https://github.com/gnustep/libobjc2 ) || exit "$?"
+sudo rm -fr "${gnustephome}" "${gnustepsrc}" libkqueue* libdispatch* libobjc2* /usr/local/include/NiagraFalls/ /usr/local/lib/libNiagra*
 ( git clone git://github.com/GalenRhodes/libdispatch.git && git clone https://github.com/gnustep/libobjc2 ) || exit "$?"
+if [ "${DOKQUEUE}" = "Y" ]; then
+	git clone "https://github.com/GalenRhodes/libkqueue.git" libkqueue || exit "$?"
+fi
 
-#svn co http://svn.gna.org/svn/gnustep/modules/core
-# wget -O "${gnustepsrc}" "https://www.dropbox.com/s/o6zb2ckm9tv5ckw/GNUstep-source-40042.tar.xz?dl=0" || exit "$?"
-wget -O "${gnustepsrc}" "https://www.dropbox.com/s/u4wjmulazx3uwv1/GNUstep-source-39750.tar.xz?dl=0" || exit "$?"
-cat "${gnustepsrc}" | 7za e -an -txz -si -so 2>/dev/null | tar xvf - || exit "$?"
-mv GNUstep core || exit "$?"
+mkdir -p "${PRJDIR}/${gnustephome}"
+git clone https://github.com/gnustep/make "${PRJDIR}/${gnustephome}/make" || exit "$?"
+git clone https://github.com/gnustep/base.git "${PRJDIR}/${gnustephome}/base" || exit "$?"
+git clone https://github.com/gnustep/gui.git "${PRJDIR}/${gnustephome}/gui" || exit "$?"
+git clone https://github.com/gnustep/back.git "${PRJDIR}/${gnustephome}/back" || exit "$?"
 
 cat > common.cmake.txt <<-GREOF
 	set(CMAKE_C_FLAGS						"${CFLAGS}"			CACHE STRING	"")
@@ -55,19 +61,27 @@ cat > common.cmake.txt <<-GREOF
 	set(CMAKE_LINKER						"${LD}"				CACHE FILEPATH	"")
 	set(CMAKE_EXPORT_COMPILE_COMMANDS		ON					CACHE BOOL		"")
 GREOF
+
 cp common.cmake.txt libobjc2.cmake.txt
 cp common.cmake.txt libdispatch.cmake.txt
+
+if [ "${DOKQUEUE}" = "Y" ]; then
+	cp common.cmake.txt libkqueue.cmake.txt
+	cat >> libkqueue.cmake.txt <<-"GREOF"
+		set(STATIC_KQUEUE ON CACHE BOOL "")
+	GREOF
+fi
 
 cat >> libobjc2.cmake.txt <<-"GREOF"
 	set(xx "libc6 (>=2.7), libgcc1 (>=1:4.4.0), libstdc++6 (>=5.2)")
 	set(xy "https://github.com/gnustep/libobjc2")
-	
+
 	set(TESTS								OFF					CACHE BOOL		"")
 	set(BUILD_STATIC_LIBOBJC				ON					CACHE BOOL		"")
 	set(FORCE_LIBOBJCXX						OFF					CACHE BOOL		"")
 	set(LIBOBJC_NAME                        "objc2"				CACHE STRING	"")
 	set(GNUSTEP_INSTALL_TYPE				"NONE"				CACHE STRING	"")
-	
+
 	set(CPACK_PACKAGE_NAME					"libobjc2"			CACHE STRING	"")
 	set(CPACK_PACKAGE_VERSION_MAJOR			"1"					CACHE STRING	"")
 	set(CPACK_PACKAGE_VERSION_MINOR			"8"					CACHE STRING	"")
@@ -88,17 +102,17 @@ function BuildCMake() {
 	local pdir
 	local cfil
 	local j="-j${PROCESSORS}"
-	
+
 	while [ $# -ge 2 ]; do
 		pdir="$1"
 		cfil="$2"
 		shift 2
-		
+
 		( sudo ldconfig && cd "${pdir}" && sudo rm -fr build && mkdir build && cd build &&   \
 			cmake "-G" "Unix Makefiles" "-C" "${cfil}" "${pdir}" && make "${j}" &&           \
 			cpack -G DEB && sudo dpkg -i --force-all *.deb && cp *.deb "${PRJDIR}/" ) || return "$?"
 	done
-	
+
 	return 0
 }
 
@@ -106,50 +120,52 @@ function BuildGMake() {
 	local y;
 	local j="-j${PROCESSORS}"
 	local d="${PRJDIR}/${gnustephome}"
-	
+
 	for y in $@; do
-		( sudo ldconfig && cd "${d}/${y}" && ./configure && make "${j}" && sudo -E make "${j}" install ) || return "$?"
+		( sudo ldconfig && cd "${d}/${y}" && ./configure "--build=${_target}" && make "${j}" && sudo -E make "${j}" install ) || return "$?"
 	done
-	
+
 	return 0
 }
 
-BuildCMake "${PRJDIR}/libobjc2" "${PRJDIR}/libobjc2.cmake.txt" "${PRJDIR}/libdispatch" "${PRJDIR}/libdispatch.cmake.txt" || exit "$?"
-
-###########################################################################################
-# These two options seem horribly broken...
-#
-#		"--enable-objc-arc"
-#		"--disable-backend-bundle"
-#
 export CFLAGS="${CFLAGS} -Ofast -g0"
 export CXXFLAGS="${CXXFLAGS} -Ofast -g0"
 export LDFLAGS="${LDFLAGS} -Wl,--strip-all"
 
-( sudo ldconfig  && cd "${PRJDIR}/${gnustephome}/make" && ./configure \
-		"--prefix=/usr"                                               \
-		"--enable-objc-nonfragile-abi"                                \
-		"--enable-native-objc-exceptions"                             \
-		"--disable-debug-by-default"                                  \
-		"--with-layout=fhs"                                           \
-		"--with-objc-lib-flag=-lobjc2"                                \
-	                                                                  \
-	&& make && sudo -E make install ) || exit "$?"
-#
-###########################################################################################
-#
-gnustep="/usr/share/GNUstep/Makefiles/GNUstep.sh"
-rm -f "${HOME}/.bash.d/bash04gnustep.sh"
-source "${gnustep}"
-ln -s "${gnustep}" "${HOME}/.bash.d/bash04gnustep.sh"
-#
-###########################################################################################
-( BuildGMake "base" "gui" "back" ) || exit "$?"
+function BuildGNUstepMake() {
+	###########################################################################################
+	#
+	sudo ldconfig
+	cd "$1/make"
+	./configure "--build=${_target}" "--prefix=/usr" "--enable-objc-arc" "--enable-objc-nonfragile-abi" "--enable-native-objc-exceptions" \
+		"--disable-debug-by-default" "--with-layout=fhs" "--with-objc-lib-flag=-lobjc2" || return "$?"
+	( make && sudo -E make install ) || return "$?"
+	#
+	###########################################################################################
+	#
+	rm -f "${HOME}/.bash.d/bash04gnustep.sh"
+	ln -s "$1" "${HOME}/.bash.d/bash04gnustep.sh"
+	#
+	###########################################################################################
+	return 0
+}
 
-( sudo ldconfig &&                                                    \
-	cd "${PRJDIR}/DispatchTest" &&                                    \
-	./fetch_and_config.sh -b &&                                       \
-	"${PRJDIR}/DispatchTest/build/DispatchTest/DispatchTest" ) || exit "$?"
+gnustep="/usr/share/GNUstep/Makefiles/GNUstep.sh"
+BuildGNUstepMake "${PRJDIR}/${gnustephome}" "${gnustep}" || exit "$?"
+source "${gnustep}"
+
+if [ "${DOKQUEUE}" = "Y" ]; then BuildCMake "${PRJDIR}/libkqueue" "${PRJDIR}/libkqueue.cmake.txt" || exit "$?"; fi
+BuildCMake "${PRJDIR}/libobjc2" "${PRJDIR}/libobjc2.cmake.txt" || exit "$?"
+BuildCMake "${PRJDIR}/libdispatch" "${PRJDIR}/libdispatch.cmake.txt" || exit "$?"
+export LDFLAGS="${LDFLAGS} -ldispatch"
+
+BuildGNUstepMake "${PRJDIR}/${gnustephome}" "${gnustep}" || exit "$?"
+source "${gnustep}"
+BuildGMake "base" "gui" "back" || exit "$?"
+
+TPROJ="galen"
+UPROJ="${PRJDIR}/${TPROJ}"
+rsync -avz "grhodes@homer:Projects/GalenRhodes/${TPROJ}/" "${UPROJ}/" || exit "?"
+( sudo ldconfig && cd "${UPROJ}" && ./fetch_and_config.sh -e ) || exit "$?"
 
 exit 0
-
