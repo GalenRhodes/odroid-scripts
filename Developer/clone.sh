@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DOKQUEUE="N"
+DOKQUEUE="Y"
 PRJDIR="${HOME}/Projects"
 
 if [ "$1" = "-f" ]; then rsync -avz "grhodes@homer:Projects/odroid-scripts/Developer/clone.sh" "${PRJDIR}/"; exit "$?"; fi
@@ -14,7 +14,7 @@ CFLAGS_ARMV7_RPI2="-march=armv7-a -mtune=cortex-a7 -mcpu=cortex-a7 -mfpu=vfpv4 -
 _target=$(clang -v 2>&1 | grep -E '^Target' | awk '{print $2}')
 echo "TARGET: ${_target}"
 
-_cbase="-integrated-as -Qunused-arguments ${CFLAGS_ARMV7_RPI2} -w"
+_cbase="-integrated-as -Qunused-arguments ${CFLAGS_ARMV8_C2} -w"
 export CFLAGS="${_cbase}"
 export CXXFLAGS="${_cbase}"
 export LDFLAGS=""
