@@ -134,7 +134,8 @@ export LDFLAGS="${LDFLAGS} -Wl,--strip-all"
 
 function BuildGNUstepMake() {
 	###########################################################################################
-	#
+	# ./configure "--prefix=/usr/local" "--enable-objc-nonfragile-abi" "--enable-debug-by-default" "--with-layout=fhs" "--with-objc-lib-flag=-lobjc2"
+	# ./configure "--prefix=/usr/local" "--enable-objc-nonfragile-abi" "--enable-debug-by-default" "--with-layout=gnustep"
 	sudo ldconfig
 	cd "$1/make"
 	./configure "--build=${_target}" "--prefix=/usr" "--enable-objc-arc" "--enable-objc-nonfragile-abi" "--enable-native-objc-exceptions" \
